@@ -1,18 +1,18 @@
-# DuckTown FSD — self-driving for a FiveM server, with an unsolved crawl bug
+# DuckTown FSD — self-driving for a FiveM server
 
 This is the FSD (full self-driving) system from **DuckTown**, a private FiveM
 zombie-survival server built on the BeyondSurvival (BS19) framework. It lives
 inside a larger admin resource (`juno-admin`) that also handles moderation, a
-companion NPC, and a token-gated HTTP API — the FSD parts are what this repo is
-about. Private values (server IPs, the owner's license identifier, the API
-token) have been scrubbed; the token itself was never in the code (it loads
-from a `token.txt` file that is not included).
+companion NPC, and a token-gated HTTP API — the FSD parts are the subject of
+this repo. Private values (server IPs, the owner's license identifier, the API
+token) have been replaced with placeholders; the token itself was never in the
+code (it loads from a `token.txt` file that is not included).
 
-**Status: the car will not drive properly, and we don't know why.** Everything
-we've tried is documented below. A second pair of eyes is the point of this
-repo.
+**Status: the drive has a known unresolved fault.** Under an FSD drive task
+the car slows to ~1 m/s and stops. The symptoms, the investigation so far, and
+the current leading hypothesis are documented below.
 
-## How it's supposed to work
+## How it works
 
 Four layers:
 
@@ -36,13 +36,13 @@ Four layers:
 4. **Places + menu + API.** A server-side gazetteer resolves place names
    ("camp", "fort zancudo", …) to coordinates. In game: an ox_lib context
    menu on **F5** (waypoint / place picker / cruise / 3 speeds / stop) and
-   `/fsdctl` chat commands. Externally, a token-gated HTTP API lets the
-   owner's assistant start/stop drives remotely.
+   `/fsdctl` chat commands. Externally, a token-gated HTTP API can start and
+   stop drives remotely.
 
 FSD is **owner-only**, enforced server-side by license identifier (the client
 UI is also gated). Everyone else drives manually.
 
-## The bug
+## Known fault: the drive task crawls
 
 Under any FSD drive task, on any vehicle, on flat ground included:
 
@@ -53,7 +53,7 @@ Under any FSD drive task, on any vehicle, on flat ground included:
 - One observation of **fast off-road, slow on-road**.
 - Sometimes the car never moves at all despite the task being active.
 
-### What has been ruled out or tried
+### Ruled out / tried
 
 - **The FSD code itself, line by line.** `fsdStart`, the `fsdAdjust` handler
   (speed/style `0` = "keep current", re-issues the task with stored values),
@@ -77,20 +77,20 @@ Under any FSD drive task, on any vehicle, on flat ground included:
   `SetDriveTaskDrivingStyle`.
 - **Zombies/traffic braking:** test drives ran with 0 peds nearby.
 
-### Prime suspect (untested)
+### Leading hypothesis (untested)
 
 **bs_vehicles' scroll-wheel throttle** (`resources/[beyond]/bs_vehicles/client/cl_cruise.lua`
 in the original — not included here). If enabled on the driver's client
 (persistent KVP `bs_wheelthr_on`) with its level scrolled below 0, it injects
 `SetControlNormal(0, 72, …)` (brake) every frame while the player isn't
-pressing W/S. That fits everything: forward crawls (brake drag), reverse is
-fast (brake input is reverse throttle at a stop), manual driving is fine
-(injection pauses while W is held), FSD "turns off" (the injected brake can
-trip the takeover watcher). The current build auto-disables that feature
-during FSD drives via bs_vehicles' own settings export and restores it
-afterwards — **not yet test-driven**.
+pressing W/S. That fits the observed symptoms: forward crawls (brake drag),
+reverse is fast (brake input is reverse throttle at a stop), manual driving
+is fine (injection pauses while W is held), FSD "turns off" (the injected
+brake can trip the takeover watcher). The current build auto-disables that
+feature during FSD drives via bs_vehicles' own settings export and restores
+it afterwards — **not yet test-driven**.
 
-### Also built, awaiting a test drive
+### Built, awaiting a test drive
 
 - **Raw-drive bisect:** `juno-admin:rawDrive` issues the bare native task
   with zero FSD machinery (no state, no watcher, no supervision).
@@ -107,9 +107,9 @@ afterwards — **not yet test-driven**.
   owner's reports (the code is in `buildReport`, pcall-wrapped; possibly
   stale client files).
 
-`RESEARCH.md` is an independent web-research report on this exact symptom
-(Cfx forum threads, native docs, working autopilot sources) with a ranked
-cause list and discriminating experiments.
+`RESEARCH.md` is a web-research report on this symptom (Cfx forum threads,
+native docs, working autopilot sources) with a ranked cause list and
+discriminating experiments.
 
 ## Files
 
@@ -123,10 +123,3 @@ cause list and discriminating experiments.
 
 Environment: FXServer build 38781, ox_lib 3.24.0 (pinned), BS19 v1.1.0
 framework, screenshot-basic for the vision frames.
-
-## The ask
-
-Why does the drive task crawl? If you see it — in the code, in the native
-usage, in the interaction with the framework — open an issue or just tell the
-owner what to change. Guesses are welcome if they're labelled as guesses;
-what we need most is a test that discriminates between the remaining causes.
