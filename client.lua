@@ -613,6 +613,10 @@ local function fsdStart(dest, speed, style, mode)
     FSD.speed = tonumber(speed) or FSD.speed
     FSD.style = tonumber(style) or FSD.style
     if dest then
+        -- out-param note: the docs write this native in C style as
+        -- GetClosestVehicleNode(x, y, z, Vector3* outPosition, nodeType, p5, p6) -> BOOL.
+        -- Lua has no pointers, so Cfx returns outPosition as the SECOND return value:
+        -- local found, nodePos = GetClosestVehicleNode(x, y, z, 1, 3.0, 0) is correct.
         local okSnap, node = pcall(function()
             local found, n = GetClosestVehicleNode(dest.x, dest.y, dest.z, 1, 3.0, 0)
             if found then return n end
